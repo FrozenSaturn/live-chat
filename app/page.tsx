@@ -1,7 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 
 export default function Home() {
+  const tasks = useQuery(api.tasks.get);
+
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 font-sans dark:bg-black">
       <header className="flex w-full items-center justify-between p-4 px-8 bg-white dark:bg-black border-b border-zinc-100 dark:border-white/10">
@@ -18,6 +24,23 @@ export default function Home() {
 
       <main className="flex flex-1 items-center justify-center p-8">
         <div className="flex w-full max-w-3xl flex-col items-center justify-between py-24 px-12 bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-white/5 sm:items-start shadow-sm">
+          <div className="w-full flex flex-col gap-4 mb-8">
+            <h2 className="text-xl font-semibold mb-2">Convex Tasks:</h2>
+            {tasks === undefined ? (
+              <p>Loading tasks...</p>
+            ) : tasks.length === 0 ? (
+              <p>No tasks found.</p>
+            ) : (
+              <ul className="list-disc pl-5">
+                {tasks.map((task, i) => (
+                  <li key={i} className="mb-1">
+                    {task.text} {task.isCompleted ? "✅" : "⏳"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
             <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
               Welcome to your new app.

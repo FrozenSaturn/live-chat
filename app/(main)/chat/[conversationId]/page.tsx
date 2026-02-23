@@ -9,8 +9,30 @@ import { ScrollArea } from "../../../../components/ui/scroll-area";
 import { Input } from "../../../../components/ui/input";
 import { Button } from "../../../../components/ui/button";
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, ArrowLeft } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
+import Link from "next/link";
+
+function formatMessageTime(timestamp: number) {
+    const date = new Date(timestamp);
+    const now = new Date();
+
+    const isToday =
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear();
+
+    if (isToday) {
+        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    const isSameYear = date.getFullYear() === now.getFullYear();
+    if (isSameYear) {
+        return `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    }
+
+    return date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+}
 
 export default function ChatPage() {
     const { conversationId } = useParams();
@@ -96,8 +118,11 @@ export default function ChatPage() {
     return (
         <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
             {/* Chat Header */}
-            <header className="flex h-[68px] items-center justify-between border-b px-8 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md z-10 shrink-0">
+            <header className="flex h-[68px] items-center justify-between border-b px-4 md:px-8 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md z-10 shrink-0">
                 <div className="flex items-center gap-3">
+                    <Link href="/" className="md:hidden p-2 -ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
+                        <ArrowLeft className="h-5 w-5" />
+                    </Link>
                     <div className="relative">
                         <Avatar className="h-10 w-10">
                             <AvatarImage src={otherUser?.image} />
@@ -149,10 +174,7 @@ export default function ChatPage() {
                                                 className={`text-[10px] mt-1.5 font-medium opacity-40 ${isMine ? "text-right" : "text-left"
                                                     }`}
                                             >
-                                                {new Date(msg.createdAt).toLocaleTimeString([], {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                })}
+                                                {formatMessageTime(msg.createdAt)}
                                             </div>
                                         </div>
                                     </div>

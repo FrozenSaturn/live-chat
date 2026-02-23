@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useUser, UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 function formatTimestamp(timestamp: number) {
     const date = new Date(timestamp);
@@ -24,7 +25,7 @@ function formatTimestamp(timestamp: number) {
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-export function Sidebar() {
+export function Sidebar({ className }: { className?: string }) {
     const { user, isLoaded: isClerkLoaded } = useUser();
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
@@ -50,14 +51,14 @@ export function Sidebar() {
 
     if (!isClerkLoaded || conversations === undefined) {
         return (
-            <div className="flex h-full items-center justify-center border-r bg-white dark:bg-zinc-950 w-80">
+            <div className={cn("flex h-full items-center justify-center border-r bg-white dark:bg-zinc-950", className)}>
                 <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
             </div>
         );
     }
 
     return (
-        <div className="flex h-full w-80 flex-col border-r bg-white dark:bg-zinc-950">
+        <div className={cn("flex h-full flex-col border-r bg-white dark:bg-zinc-950", className)}>
             <div className="p-4 px-6 space-y-4">
                 <h2 className="text-xl font-bold">Chats</h2>
                 <div className="relative">
@@ -115,6 +116,14 @@ export function Sidebar() {
                     )}
                 </div>
             </ScrollArea>
+            <div className="p-4 border-t flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50">
+                <div className="flex items-center gap-2">
+                    <UserButton appearance={{ elements: { userButtonAvatarBox: "h-8 w-8" } }} />
+                    <div className="text-sm font-medium truncate max-w-[120px]">
+                        {user?.fullName || user?.firstName || "Settings"}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

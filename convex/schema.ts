@@ -22,6 +22,7 @@ export default defineSchema({
         conversationId: v.id("conversations"),
         userId: v.id("users"),
         lastSeenMessageAt: v.optional(v.number()),
+        typingUntil: v.optional(v.number()),
     })
         .index("by_conversation", ["conversationId"])
         .index("by_user", ["userId"])

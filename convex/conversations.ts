@@ -82,12 +82,19 @@ export const list = query({
                     }
                 }
 
+                const unreadMessages = await ctx.db
+                    .query("messages")
+                    .withIndex("by_conversation", (q) => q.eq("conversationId", membership.conversationId))
+                    .filter((q) => q.gt(q.field("createdAt"), membership.lastSeenMessageAt || 0))
+                    .collect();
+
                 return {
                     _id: conversation._id,
                     isGroup: conversation.isGroup,
                     lastMessage: conversation.lastMessage,
                     lastMessageAt: conversation.lastMessageAt || 0,
                     otherUser,
+                    unreadCount: unreadMessages.length,
                 };
             })
         );
@@ -108,6 +115,7 @@ export const get = query({
         if (!conversation) return null;
 
         let otherUser = null;
+        let isTyping = false;
 
         if (args.currentUserId && !conversation.isGroup) {
             const otherMember = await ctx.db
@@ -118,12 +126,57 @@ export const get = query({
 
             if (otherMember) {
                 otherUser = await ctx.db.get(otherMember.userId);
+                isTyping = (otherMember.typingUntil || 0) > Date.now();
             }
         }
 
         return {
             ...conversation,
             otherUser,
+            isTyping,
         };
+    },
+});
+
+export const updateTyping = mutation({
+    args: {
+        conversationId: v.id("conversations"),
+        userId: v.id("users"),
+        isTyping: v.boolean(),
+    },
+    handler: async (ctx, args) => {
+        const membership = await ctx.db
+            .query("conversationMembers")
+            .withIndex("by_conversation_user", (q) =>
+                q.eq("conversationId", args.conversationId).eq("userId", args.userId)
+            )
+            .unique();
+
+        if (membership) {
+            await ctx.db.patch(membership._id, {
+                typingUntil: args.isTyping ? Date.now() + 2000 : 0,
+            });
+        }
+    },
+});
+
+export const markAsRead = mutation({
+    args: {
+        conversationId: v.id("conversations"),
+        userId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        const membership = await ctx.db
+            .query("conversationMembers")
+            .withIndex("by_conversation_user", (q) =>
+                q.eq("conversationId", args.conversationId).eq("userId", args.userId)
+            )
+            .unique();
+
+        if (membership) {
+            await ctx.db.patch(membership._id, {
+                lastSeenMessageAt: Date.now(),
+            });
+        }
     },
 });

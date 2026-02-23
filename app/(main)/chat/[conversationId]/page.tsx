@@ -59,6 +59,18 @@ export default function ChatPage() {
     );
 
     const sendMessage = useMutation(api.messages.send);
+    const updateTyping = useMutation(api.conversations.updateTyping);
+    const markAsRead = useMutation(api.conversations.markAsRead);
+
+    // Mark as read logic
+    useEffect(() => {
+        if (conversationId && currentUser?._id && messages && messages.length > 0) {
+            markAsRead({
+                conversationId: conversationId as Id<"conversations">,
+                userId: currentUser._id,
+            });
+        }
+    }, [conversationId, currentUser?._id, messages, markAsRead]);
 
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -67,6 +79,12 @@ export default function ChatPage() {
         try {
             const content = message.trim();
             setMessage("");
+            // Clear typing status immediately on send
+            updateTyping({
+                conversationId: conversationId as Id<"conversations">,
+                userId: currentUser._id,
+                isTyping: false,
+            });
             await sendMessage({
                 conversationId: conversationId as Id<"conversations">,
                 senderId: currentUser._id,
@@ -78,6 +96,27 @@ export default function ChatPage() {
             console.error("Error sending message:", error);
         }
     };
+
+    // Typing logic
+    useEffect(() => {
+        if (!message.trim() || !currentUser || !conversationId) return;
+
+        const updateTypingStatus = async (isTyping: boolean) => {
+            await updateTyping({
+                conversationId: conversationId as Id<"conversations">,
+                userId: currentUser._id,
+                isTyping,
+            });
+        };
+
+        updateTypingStatus(true);
+
+        const timeoutId = setTimeout(() => {
+            updateTypingStatus(false);
+        }, 2000);
+
+        return () => clearTimeout(timeoutId);
+    }, [message, currentUser, conversationId, updateTyping]);
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const target = e.currentTarget;
@@ -97,7 +136,7 @@ export default function ChatPage() {
             // If new message arrives and we're not at bottom, show button
             setShowScrollButton(true);
         }
-    }, [messages]);
+    }, [messages, isAtBottom]);
 
     const scrollToBottom = () => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -114,6 +153,7 @@ export default function ChatPage() {
     }
 
     const otherUser = conversation?.otherUser;
+    const isTyping = conversation?.isTyping;
 
     return (
         <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
@@ -134,8 +174,10 @@ export default function ChatPage() {
                     </div>
                     <div>
                         <div className="font-semibold leading-tight">{otherUser?.name}</div>
-                        <div className="text-xs text-zinc-500">
-                            {otherUser?.isOnline ? (
+                        <div className="text-xs text-zinc-500 min-h-[1rem]">
+                            {isTyping ? (
+                                <span className="text-zinc-500 animate-pulse italic">typing...</span>
+                            ) : otherUser?.isOnline ? (
                                 <span className="text-green-500 font-medium text-[10px] uppercase tracking-wider">Online</span>
                             ) : (
                                 <span className="text-[10px] uppercase tracking-wider">Offline</span>

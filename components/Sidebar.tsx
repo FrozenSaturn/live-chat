@@ -98,16 +98,29 @@ export function Sidebar({ className }: { className?: string }) {
                                         )}
                                     </div>
                                     <div className="flex-1 overflow-hidden">
-                                        <div className="flex justify-between items-baseline mb-0.5">
-                                            <div className="truncate text-base font-semibold">{u.name}</div>
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <div className="truncate text-base font-semibold mr-2">{u.name}</div>
                                             {c.lastMessageAt > 0 && (
-                                                <div className="text-[11px] text-zinc-500 font-medium shrink-0 ml-2">
+                                                <div className={`text-[11px] font-medium shrink-0 ${c.unreadCount > 0 ? "text-green-500" : "text-zinc-500"}`}>
                                                     {formatTimestamp(c.lastMessageAt)}
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="truncate text-[14px] text-zinc-500 leading-tight">
-                                            {c.lastMessage || "Started a conversation"}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className={`truncate text-[14px] leading-tight flex-1 min-w-0 ${c.unreadCount > 0 ? "text-zinc-900 dark:text-zinc-100 font-medium" : "text-zinc-500"}`}>
+                                                {c.lastMessage
+                                                    ? c.lastMessage.length > 35
+                                                        ? `${c.lastMessage.substring(0, 30)}...`
+                                                        : c.lastMessage
+                                                    : "Started a conversation"}
+                                            </div>
+                                            {c.unreadCount > 0 && (
+                                                <div className="min-w-[18px] h-[18px] rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                                                    <span className="text-[10px] text-white font-bold leading-none mt-[1px]">
+                                                        {c.unreadCount}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </button>

@@ -17,6 +17,7 @@ export const send = mutation({
             content: args.content,
             createdAt: timestamp,
             deleted: false,
+            reactions: [],
         });
 
         // 2. Update the conversation with last message info
@@ -63,6 +64,38 @@ export const remove = mutation({
                 lastMessage: deletedContent,
             });
         }
+    },
+});
+
+export const toggleReaction = mutation({
+    args: {
+        messageId: v.id("messages"),
+        userId: v.id("users"),
+        emoji: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const message = await ctx.db.get(args.messageId);
+        if (!message) {
+            throw new Error("Message not found");
+        }
+
+        const reactions = message.reactions || [];
+        const existingReactionIndex = reactions.findIndex(
+            (r) => r.emoji === args.emoji && r.userId === args.userId
+        );
+
+        if (existingReactionIndex !== -1) {
+            reactions.splice(existingReactionIndex, 1);
+        } else {
+            reactions.push({
+                emoji: args.emoji,
+                userId: args.userId,
+            });
+        }
+
+        await ctx.db.patch(args.messageId, {
+            reactions,
+        });
     },
 });
 

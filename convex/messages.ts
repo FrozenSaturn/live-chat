@@ -40,3 +40,29 @@ export const list = query({
             .collect();
     },
 });
+export const remove = mutation({
+    args: {
+        messageId: v.id("messages"),
+    },
+    handler: async (ctx, args) => {
+        const message = await ctx.db.get(args.messageId);
+        if (!message) {
+            throw new Error("Message not found");
+        }
+
+        const deletedContent = "This message was deleted";
+        await ctx.db.patch(args.messageId, {
+            content: deletedContent,
+            deleted: true,
+        });
+
+        // Update conversation if this was the last message
+        const conversation = await ctx.db.get(message.conversationId);
+        if (conversation && conversation.lastMessage === message.content) {
+            await ctx.db.patch(message.conversationId, {
+                lastMessage: deletedContent,
+            });
+        }
+    },
+});
+

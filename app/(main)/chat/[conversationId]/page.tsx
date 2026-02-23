@@ -8,40 +8,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../../../components/ui/a
 import { ScrollArea } from "../../../../components/ui/scroll-area";
 import { Input } from "../../../../components/ui/input";
 import { Button } from "../../../../components/ui/button";
-import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Loader2, ArrowLeft, Trash2 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import Link from "next/link";
-
-function formatMessageTime(timestamp: number) {
-    const date = new Date(timestamp);
-    const now = new Date();
-
-    const isToday =
-        date.getDate() === now.getDate() &&
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear();
-
-    if (isToday) {
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    }
-
-    const isSameYear = date.getFullYear() === now.getFullYear();
-    if (isSameYear) {
-        return `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    }
-
-    return date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
-}
+import { formatTimestamp } from "@/lib/utils";
+import { useScrollToBottom } from "../../../../hooks/useScrollToBottom";
+import { useTyping } from "../../../../hooks/useTyping";
 
 export default function ChatPage() {
     const { conversationId } = useParams();
     const { user, isLoaded: isClerkLoaded } = useUser();
     const [message, setMessage] = useState("");
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [showScrollButton, setShowScrollButton] = useState(false);
-    const [isAtBottom, setIsAtBottom] = useState(true);
 
     const currentUser = useQuery(
         api.users.current,
@@ -59,8 +37,11 @@ export default function ChatPage() {
     );
 
     const sendMessage = useMutation(api.messages.send);
+    const deleteMessage = useMutation(api.messages.remove);
     const updateTyping = useMutation(api.conversations.updateTyping);
     const markAsRead = useMutation(api.conversations.markAsRead);
+
+    const { scrollRef, showScrollButton, handleScroll, scrollToBottom } = useScrollToBottom(messages || []);
 
     // Mark as read logic
     useEffect(() => {
@@ -71,6 +52,13 @@ export default function ChatPage() {
             });
         }
     }, [conversationId, currentUser?._id, messages, markAsRead]);
+
+    useTyping({
+        message,
+        currentUser,
+        conversationId: conversationId as string,
+        updateTyping,
+    });
 
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -95,53 +83,6 @@ export default function ChatPage() {
         } catch (error) {
             console.error("Error sending message:", error);
         }
-    };
-
-    // Typing logic
-    useEffect(() => {
-        if (!message.trim() || !currentUser || !conversationId) return;
-
-        const updateTypingStatus = async (isTyping: boolean) => {
-            await updateTyping({
-                conversationId: conversationId as Id<"conversations">,
-                userId: currentUser._id,
-                isTyping,
-            });
-        };
-
-        updateTypingStatus(true);
-
-        const timeoutId = setTimeout(() => {
-            updateTypingStatus(false);
-        }, 2000);
-
-        return () => clearTimeout(timeoutId);
-    }, [message, currentUser, conversationId, updateTyping]);
-
-    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        const target = e.currentTarget;
-        const bottomThreshold = 100;
-        const isBottom = target.scrollHeight - target.scrollTop - target.clientHeight < bottomThreshold;
-
-        setIsAtBottom(isBottom);
-        if (isBottom) {
-            setShowScrollButton(false);
-        }
-    };
-
-    useEffect(() => {
-        if (isAtBottom && scrollRef.current) {
-            scrollRef.current.scrollIntoView({ behavior: "smooth" });
-        } else if (!isAtBottom && messages && messages.length > 0) {
-            // If new message arrives and we're not at bottom, show button
-            setShowScrollButton(true);
-        }
-    }, [messages, isAtBottom]);
-
-    const scrollToBottom = () => {
-        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-        setShowScrollButton(false);
-        setIsAtBottom(true);
     };
 
     if (!isClerkLoaded || currentUser === undefined || messages === undefined || conversation === undefined) {
@@ -203,22 +144,32 @@ export default function ChatPage() {
                                 return (
                                     <div
                                         key={msg._id}
-                                        className={`flex ${isMine ? "justify-end" : "justify-start"} ${isNewGroup ? "mt-4" : "mt-1"}`}
+                                        className={`flex group items-center gap-2 ${isMine ? "flex-row-reverse" : "flex-row"} ${isNewGroup ? "mt-4" : "mt-1"}`}
                                     >
                                         <div
                                             className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all ${isMine
                                                 ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-tr-none"
                                                 : "bg-white text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 border border-zinc-100 dark:border-white/5 rounded-tl-none"
-                                                }`}
+                                                } ${msg.deleted ? "opacity-50 italic" : ""}`}
                                         >
                                             <div className="leading-relaxed">{msg.content}</div>
                                             <div
                                                 className={`text-[10px] mt-1.5 font-medium opacity-40 ${isMine ? "text-right" : "text-left"
                                                     }`}
                                             >
-                                                {formatMessageTime(msg.createdAt)}
+                                                {formatTimestamp(msg.createdAt)}
                                             </div>
                                         </div>
+
+                                        {isMine && !msg.deleted && (
+                                            <button
+                                                onClick={() => deleteMessage({ messageId: msg._id })}
+                                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all text-zinc-400 hover:text-red-500"
+                                                title="Delete message"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </div>
                                 );
                             })}

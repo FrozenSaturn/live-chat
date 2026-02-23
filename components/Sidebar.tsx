@@ -1,32 +1,19 @@
 "use client";
 
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser, UserButton, useClerk } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, LogOut } from "lucide-react";
 import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-
-function formatTimestamp(timestamp: number) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const isToday =
-        date.getDate() === now.getDate() &&
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear();
-
-    if (isToday) {
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    }
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
-}
+import { cn, formatTimestamp } from "@/lib/utils";
 
 export function Sidebar({ className }: { className?: string }) {
     const { user, isLoaded: isClerkLoaded } = useUser();
+    const { signOut } = useClerk();
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -136,6 +123,14 @@ export function Sidebar({ className }: { className?: string }) {
                         {user?.fullName || user?.firstName || "Settings"}
                     </div>
                 </div>
+                <button
+                    onClick={() => signOut(() => router.push("/"))}
+                    className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500 hover:text-red-500"
+                    title="Logout"
+                >
+                    <LogOut className="h-5 w-5" />
+                </button>
+
             </div>
         </div>
     );

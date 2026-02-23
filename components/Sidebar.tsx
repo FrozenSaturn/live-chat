@@ -6,11 +6,13 @@ import { api } from "../convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
+import { Input } from "./ui/input";
 
 export function Sidebar() {
     const { user, isLoaded: isClerkLoaded } = useUser();
     const [startingConversation, setStartingConversation] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const users = useQuery(
         api.users.listAll,
@@ -23,6 +25,10 @@ export function Sidebar() {
 
     const getOrCreateConversation = useMutation(api.conversations.getOrCreateConversation);
 
+    const filteredUsers = users?.filter((u) =>
+        u.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     const handleStartConversation = async (participantId: any) => {
         if (!currentUser) return;
         try {
@@ -32,7 +38,6 @@ export function Sidebar() {
                 currentUserId: currentUser._id,
             });
             console.log("Joined conversation:", conversationId);
-            // We'll handle navigation later if needed
         } catch (error) {
             console.error("Error starting conversation:", error);
         } finally {
@@ -50,17 +55,26 @@ export function Sidebar() {
 
     return (
         <div className="flex h-full w-80 flex-col border-r bg-white dark:bg-zinc-950">
-            <div className="border-b p-4 px-6">
+            <div className="p-4 px-6 space-y-4">
                 <h2 className="text-xl font-bold">Chats</h2>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                    <Input
+                        placeholder="Search users..."
+                        className="pl-9"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
             </div>
             <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
-                    {users.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-zinc-500">
-                            No other users found
+                    {filteredUsers && filteredUsers.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-zinc-500">
+                            {searchQuery ? "No users found" : "No other users found"}
                         </div>
                     ) : (
-                        users.map((u) => (
+                        filteredUsers?.map((u) => (
                             <button
                                 key={u._id}
                                 onClick={() => handleStartConversation(u._id)}
@@ -68,7 +82,7 @@ export function Sidebar() {
                                 className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900 disabled:opacity-50"
                             >
                                 <div className="relative">
-                                    <Avatar>
+                                    <Avatar className="h-10 w-10">
                                         <AvatarImage src={u.image} />
                                         <AvatarFallback>{u.name.charAt(0)}</AvatarFallback>
                                     </Avatar>

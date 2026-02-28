@@ -35,10 +35,20 @@ export const list = query({
         conversationId: v.id("conversations"),
     },
     handler: async (ctx, args) => {
-        return await ctx.db
+        const messages = await ctx.db
             .query("messages")
             .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
             .collect();
+
+        return await Promise.all(
+            messages.map(async (msg) => {
+                const sender = await ctx.db.get(msg.senderId);
+                return {
+                    ...msg,
+                    senderName: sender?.name,
+                };
+            })
+        );
     },
 });
 export const remove = mutation({

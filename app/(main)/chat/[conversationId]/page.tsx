@@ -180,8 +180,13 @@ export default function ChatPage() {
         );
     }
 
+    const isGroup = conversation?.isGroup;
     const otherUser = conversation?.otherUser;
     const isTyping = conversation?.isTyping;
+    const displayName = isGroup ? conversation.name : otherUser?.name;
+    const displayImage = isGroup ? undefined : otherUser?.image;
+    const fallbackText = isGroup ? (conversation.name || "Group").charAt(0) : otherUser?.name?.charAt(0);
+    const isOnline = !isGroup && otherUser?.isOnline;
 
     return (
         <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
@@ -193,19 +198,21 @@ export default function ChatPage() {
                     </Link>
                     <div className="relative">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src={otherUser?.image} />
-                            <AvatarFallback>{otherUser?.name?.charAt(0)}</AvatarFallback>
+                            <AvatarImage src={displayImage} />
+                            <AvatarFallback>{fallbackText}</AvatarFallback>
                         </Avatar>
-                        {otherUser?.isOnline && (
+                        {isOnline && (
                             <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500 dark:border-zinc-950" />
                         )}
                     </div>
                     <div>
-                        <div className="font-semibold leading-tight">{otherUser?.name}</div>
+                        <div className="font-semibold leading-tight">{displayName}</div>
                         <div className="text-xs text-zinc-500 min-h-[1rem]">
-                            {isTyping ? (
+                            {isGroup ? (
+                                <span>{conversation.memberCount} members</span>
+                            ) : isTyping ? (
                                 <span className="text-zinc-500 animate-pulse italic">typing...</span>
-                            ) : otherUser?.isOnline ? (
+                            ) : isOnline ? (
                                 <span className="text-green-500 font-medium text-[10px] uppercase tracking-wider">Online</span>
                             ) : (
                                 <span className="text-[10px] uppercase tracking-wider">Offline</span>
@@ -234,6 +241,7 @@ export default function ChatPage() {
                                         msg={msg}
                                         isMine={isMine}
                                         isNewGroup={isNewGroup}
+                                        isGroupChat={isGroup}
                                         currentUserId={currentUser?._id}
                                         onToggleReaction={(messageId, userId, emoji) => toggleReaction({ messageId, userId, emoji })}
                                         onDeleteMessage={(messageId) => deleteMessage({ messageId })}

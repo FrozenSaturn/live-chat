@@ -14,15 +14,17 @@ interface ChatMessageProps {
         createdAt: number;
         deleted: boolean;
         reactions?: { emoji: string; userId: Id<"users"> }[];
+        senderName?: string;
     };
     isMine: boolean;
     isNewGroup: boolean;
+    isGroupChat?: boolean;
     currentUserId?: string;
     onToggleReaction: (messageId: Id<"messages">, userId: Id<"users">, emoji: string) => void;
     onDeleteMessage: (messageId: Id<"messages">) => void;
 }
 
-export function ChatMessage({ msg, isMine, isNewGroup, currentUserId, onToggleReaction, onDeleteMessage }: ChatMessageProps) {
+export function ChatMessage({ msg, isMine, isNewGroup, isGroupChat, currentUserId, onToggleReaction, onDeleteMessage }: ChatMessageProps) {
     const reactions = msg.reactions || [];
     const reactionCounts = reactions.reduce((acc, r) => {
         if (!acc[r.emoji]) acc[r.emoji] = { count: 0, hasReacted: false };
@@ -36,6 +38,9 @@ export function ChatMessage({ msg, isMine, isNewGroup, currentUserId, onToggleRe
             className={`flex group items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"} ${isNewGroup ? "mt-4" : "mt-1"}`}
         >
             <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[70%]`}>
+                {!isMine && isNewGroup && isGroupChat && msg.senderName && (
+                    <div className="text-xs font-medium text-zinc-500 mb-1 ml-1">{msg.senderName}</div>
+                )}
                 <div
                     className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all ${isMine
                         ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-tr-none"

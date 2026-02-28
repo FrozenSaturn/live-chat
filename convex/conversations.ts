@@ -50,6 +50,33 @@ export const getOrCreateConversation = mutation({
     },
 });
 
+export const createGroup = mutation({
+    args: {
+        name: v.string(),
+        memberIds: v.array(v.id("users")),
+        currentUserId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        const conversationId = await ctx.db.insert("conversations", {
+            isGroup: true,
+            name: args.name,
+        });
+
+        const allMemberIds = [...new Set([...args.memberIds, args.currentUserId])];
+
+        await Promise.all(
+            allMemberIds.map((userId) =>
+                ctx.db.insert("conversationMembers", {
+                    conversationId,
+                    userId,
+                })
+            )
+        );
+
+        return conversationId;
+    },
+});
+
 export const list = query({
     args: {
         currentUserId: v.optional(v.id("users")),
@@ -69,6 +96,7 @@ export const list = query({
                 if (!conversation) return null;
 
                 let otherUser = null;
+                let memberCount = 0;
 
                 if (!conversation.isGroup) {
                     const otherMember = await ctx.db
@@ -80,6 +108,12 @@ export const list = query({
                     if (otherMember) {
                         otherUser = await ctx.db.get(otherMember.userId);
                     }
+                } else {
+                    const groupMembers = await ctx.db
+                        .query("conversationMembers")
+                        .withIndex("by_conversation", (q) => q.eq("conversationId", membership.conversationId))
+                        .collect();
+                    memberCount = groupMembers.length;
                 }
 
                 const unreadMessages = await ctx.db
@@ -91,9 +125,11 @@ export const list = query({
                 return {
                     _id: conversation._id,
                     isGroup: conversation.isGroup,
+                    name: conversation.name,
                     lastMessage: conversation.lastMessage,
                     lastMessageAt: conversation.lastMessageAt || 0,
                     otherUser,
+                    memberCount,
                     unreadCount: unreadMessages.length,
                 };
             })
@@ -116,6 +152,7 @@ export const get = query({
 
         let otherUser = null;
         let isTyping = false;
+        let memberCount = 0;
 
         if (args.currentUserId && !conversation.isGroup) {
             const otherMember = await ctx.db
@@ -128,12 +165,19 @@ export const get = query({
                 otherUser = await ctx.db.get(otherMember.userId);
                 isTyping = (otherMember.typingUntil || 0) > Date.now();
             }
+        } else if (conversation.isGroup) {
+            const groupMembers = await ctx.db
+                .query("conversationMembers")
+                .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+                .collect();
+            memberCount = groupMembers.length;
         }
 
         return {
             ...conversation,
             otherUser,
             isTyping,
+            memberCount,
         };
     },
 });

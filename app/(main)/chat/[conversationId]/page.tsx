@@ -9,19 +9,28 @@ import { ScrollArea } from "../../../../components/ui/scroll-area";
 import { Input } from "../../../../components/ui/input";
 import { Button } from "../../../../components/ui/button";
 import { useState, useEffect } from "react";
-import { Send, Loader2, ArrowLeft, Trash2 } from "lucide-react";
+import { Send, Loader2, ArrowLeft, Trash2, AlertCircle, RefreshCw } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import Link from "next/link";
-import { formatTimestamp } from "@/lib/utils";
+import { formatTimestamp, cn } from "@/lib/utils";
 import { useScrollToBottom } from "../../../../hooks/useScrollToBottom";
 import { useTyping } from "../../../../hooks/useTyping";
+import { Skeleton } from "../../../../components/ui/skeleton";
 
 const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢"];
+
+interface PendingMessage {
+    id: string;
+    content: string;
+    status: 'sending' | 'error';
+    createdAt: number;
+}
 
 export default function ChatPage() {
     const { conversationId } = useParams();
     const { user, isLoaded: isClerkLoaded } = useUser();
     const [message, setMessage] = useState("");
+    const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
 
     const currentUser = useQuery(
         api.users.current,
@@ -70,28 +79,104 @@ export default function ChatPage() {
         try {
             const content = message.trim();
             setMessage("");
+
+            const tempId = Math.random().toString(36).substring(7);
+            const newPending: PendingMessage = {
+                id: tempId,
+                content,
+                status: 'sending',
+                createdAt: Date.now(),
+            };
+
+            setPendingMessages(prev => [...prev, newPending]);
+
             // Clear typing status immediately on send
             updateTyping({
                 conversationId: conversationId as Id<"conversations">,
                 userId: currentUser._id,
                 isTyping: false,
             });
+
+            try {
+                await sendMessage({
+                    conversationId: conversationId as Id<"conversations">,
+                    senderId: currentUser._id,
+                    content,
+                });
+                setPendingMessages(prev => prev.filter(m => m.id !== tempId));
+                // Force scroll to bottom after sending
+                scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+            } catch (error) {
+                console.error("Error sending message:", error);
+                setPendingMessages(prev => prev.map(m =>
+                    m.id === tempId ? { ...m, status: 'error' } : m
+                ));
+            }
+        } catch (error) {
+            console.error("Error in handleSend:", error);
+        }
+    };
+
+    const handleRetry = async (pendingMsg: PendingMessage) => {
+        if (!currentUser || !conversationId) return;
+
+        setPendingMessages(prev => prev.map(m =>
+            m.id === pendingMsg.id ? { ...m, status: 'sending' } : m
+        ));
+
+        try {
             await sendMessage({
                 conversationId: conversationId as Id<"conversations">,
                 senderId: currentUser._id,
-                content,
+                content: pendingMsg.content,
             });
-            // Force scroll to bottom after sending
-            scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+            setPendingMessages(prev => prev.filter(m => m.id !== pendingMsg.id));
         } catch (error) {
-            console.error("Error sending message:", error);
+            console.error("Error retrying message:", error);
+            setPendingMessages(prev => prev.map(m =>
+                m.id === pendingMsg.id ? { ...m, status: 'error' } : m
+            ));
         }
     };
 
     if (!isClerkLoaded || currentUser === undefined || messages === undefined || conversation === undefined) {
         return (
-            <div className="flex flex-1 items-center justify-center bg-white dark:bg-zinc-950">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+            <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
+                <header className="flex h-[68px] items-center border-b px-8 bg-white dark:bg-zinc-950 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-16" />
+                        </div>
+                    </div>
+                </header>
+                <div className="flex-1 p-8 space-y-6">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
+                            <Skeleton className={`h-12 w-[250px] rounded-2xl ${i % 2 === 0 ? "rounded-tr-none" : "rounded-tl-none"}`} />
+                        </div>
+                    ))}
+                </div>
+                <div className="p-4 border-t px-8">
+                    <div className="flex gap-2 max-w-5xl mx-auto">
+                        <Skeleton className="h-11 flex-1 rounded-md" />
+                        <Skeleton className="h-11 w-11 rounded-full" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (conversation === null) {
+        return (
+            <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-white dark:bg-zinc-950">
+                <AlertCircle className="h-12 w-12 text-zinc-400 mb-4" />
+                <h2 className="text-xl font-semibold mb-2">Conversation not found</h2>
+                <p className="text-zinc-500 mb-6">This conversation might have been deleted or you don't have access to it.</p>
+                <Link href="/">
+                    <Button>Back to home</Button>
+                </Link>
             </div>
         );
     }
@@ -217,6 +302,53 @@ export default function ChatPage() {
                                     </div>
                                 );
                             })}
+
+                            {pendingMessages.map((msg) => (
+                                <div
+                                    key={msg.id}
+                                    className="flex group items-end gap-2 flex-row-reverse mt-1"
+                                >
+                                    <div className="flex flex-col items-end max-w-[70%]">
+                                        <div
+                                            className={cn(
+                                                "rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-tr-none",
+                                                msg.status === 'sending' && "opacity-70",
+                                                msg.status === 'error' && "border-2 border-red-500 bg-red-50 text-red-900 dark:bg-red-950/20 dark:text-red-400"
+                                            )}
+                                        >
+                                            <div className="leading-relaxed">{msg.content}</div>
+                                            <div className="text-[10px] mt-1.5 font-medium opacity-40 text-right">
+                                                {msg.status === 'sending' ? "Sending..." : "Failed to send"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {msg.status === 'error' && (
+                                        <div className="flex items-center gap-1 mb-2">
+                                            <button
+                                                onClick={() => handleRetry(msg)}
+                                                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all text-red-500"
+                                                title="Retry"
+                                            >
+                                                <RefreshCw className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setPendingMessages(prev => prev.filter(pm => pm.id !== msg.id))}
+                                                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all text-zinc-400"
+                                                title="Discard"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {msg.status === 'sending' && (
+                                        <div className="mb-2 px-2">
+                                            <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                         <div ref={scrollRef} />
                     </div>

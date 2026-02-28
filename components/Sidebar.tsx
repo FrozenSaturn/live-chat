@@ -10,6 +10,7 @@ import { Loader2, Search, LogOut } from "lucide-react";
 import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
 import { cn, formatTimestamp } from "@/lib/utils";
+import { Skeleton } from "./ui/skeleton";
 
 export function Sidebar({ className }: { className?: string }) {
     const { user, isLoaded: isClerkLoaded } = useUser();
@@ -38,8 +39,22 @@ export function Sidebar({ className }: { className?: string }) {
 
     if (!isClerkLoaded || conversations === undefined) {
         return (
-            <div className={cn("flex h-full items-center justify-center border-r bg-white dark:bg-zinc-950", className)}>
-                <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+            <div className={cn("flex h-full flex-col border-r bg-white dark:bg-zinc-950", className)}>
+                <div className="p-4 px-6 space-y-4">
+                    <Skeleton className="h-8 w-24" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="p-2 space-y-2">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="flex items-center gap-3 p-3">
+                            <Skeleton className="h-12 w-12 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-1/2" />
+                                <Skeleton className="h-3 w-3/4" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }

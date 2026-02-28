@@ -6,7 +6,7 @@ import { api } from "../convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useState } from "react";
-import { Loader2, Search, LogOut } from "lucide-react";
+import { Search, LogOut } from "lucide-react";
 import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
 import { cn, formatTimestamp } from "@/lib/utils";

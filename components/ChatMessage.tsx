@@ -1,6 +1,7 @@
 import { Id } from "../convex/_generated/dataModel";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil, Check, X } from "lucide-react";
 import { formatTimestamp } from "@/lib/utils";
+import { useState } from "react";
 
 const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢"];
 
@@ -13,6 +14,7 @@ interface ChatMessageProps {
         content: string;
         createdAt: number;
         deleted: boolean;
+        isEdited?: boolean;
         reactions?: { emoji: string; userId: Id<"users"> }[];
         senderName?: string;
     };
@@ -22,9 +24,12 @@ interface ChatMessageProps {
     currentUserId?: string;
     onToggleReaction: (messageId: Id<"messages">, userId: Id<"users">, emoji: string) => void;
     onDeleteMessage: (messageId: Id<"messages">) => void;
+    onEditMessage?: (messageId: Id<"messages">, content: string) => void;
 }
 
-export function ChatMessage({ msg, isMine, isNewGroup, isGroupChat, currentUserId, onToggleReaction, onDeleteMessage }: ChatMessageProps) {
+export function ChatMessage({ msg, isMine, isNewGroup, isGroupChat, currentUserId, onToggleReaction, onDeleteMessage, onEditMessage }: ChatMessageProps) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editContent, setEditContent] = useState(msg.content);
     const reactions = msg.reactions || [];
     const reactionCounts = reactions.reduce((acc, r) => {
         if (!acc[r.emoji]) acc[r.emoji] = { count: 0, hasReacted: false };
@@ -32,6 +37,18 @@ export function ChatMessage({ msg, isMine, isNewGroup, isGroupChat, currentUserI
         if (r.userId === currentUserId) acc[r.emoji].hasReacted = true;
         return acc;
     }, {} as Record<string, { count: number, hasReacted: boolean }>);
+
+    const handleSaveEdit = () => {
+        if (editContent.trim() && editContent !== msg.content) {
+            onEditMessage?.(msg._id, editContent.trim());
+        }
+        setIsEditing(false);
+    };
+
+    const handleCancelEdit = () => {
+        setEditContent(msg.content);
+        setIsEditing(false);
+    };
 
     return (
         <div
@@ -47,11 +64,34 @@ export function ChatMessage({ msg, isMine, isNewGroup, isGroupChat, currentUserI
                         : "bg-white text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 border border-zinc-100 dark:border-white/5 rounded-tl-none"
                         } ${msg.deleted ? "opacity-50 italic" : ""}`}
                 >
-                    <div className="leading-relaxed">{msg.content}</div>
+                    {isEditing ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="bg-transparent border-b border-white/50 dark:border-zinc-900/50 outline-none px-1 py-0.5 text-sm min-w-[200px]"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSaveEdit();
+                                    if (e.key === "Escape") handleCancelEdit();
+                                }}
+                            />
+                            <button onClick={handleSaveEdit} className="p-1 hover:bg-white/20 rounded-full transition-colors">
+                                <Check className="h-4 w-4" />
+                            </button>
+                            <button onClick={handleCancelEdit} className="p-1 hover:bg-white/20 rounded-full transition-colors">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+                    )}
                     <div
-                        className={`text-[10px] mt-1.5 font-medium opacity-40 ${isMine ? "text-right" : "text-left"}`}
+                        className={`text-[10px] mt-1.5 font-medium opacity-40 flex items-center gap-1 ${isMine ? "justify-end" : "justify-start"}`}
                     >
                         {formatTimestamp(msg.createdAt)}
+                        {msg.isEdited && !msg.deleted && <span className="italic">(edited)</span>}
                     </div>
                 </div>
 
@@ -85,14 +125,23 @@ export function ChatMessage({ msg, isMine, isNewGroup, isGroupChat, currentUserI
                             </button>
                         ))}
                     </div>
-                    {isMine && (
-                        <button
-                            onClick={() => onDeleteMessage(msg._id)}
-                            className="p-2 ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all text-zinc-400 hover:text-red-500"
-                            title="Delete message"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </button>
+                    {isMine && !isEditing && (
+                        <div className="flex items-center">
+                            <button
+                                onClick={() => setIsEditing(true)}
+                                className="p-2 ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all text-zinc-400 hover:text-blue-500"
+                                title="Edit message"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                                onClick={() => onDeleteMessage(msg._id)}
+                                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all text-zinc-400 hover:text-red-500"
+                                title="Delete message"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </div>
                     )}
                 </div>
             )}

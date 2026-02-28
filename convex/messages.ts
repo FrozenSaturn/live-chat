@@ -51,6 +51,35 @@ export const list = query({
         );
     },
 });
+export const edit = mutation({
+    args: {
+        messageId: v.id("messages"),
+        content: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const message = await ctx.db.get(args.messageId);
+        if (!message) {
+            throw new Error("Message not found");
+        }
+
+        if (message.deleted) {
+            throw new Error("Cannot edit deleted message");
+        }
+
+        await ctx.db.patch(args.messageId, {
+            content: args.content,
+            isEdited: true,
+        });
+
+        const conversation = await ctx.db.get(message.conversationId);
+        if (conversation && conversation.lastMessage === message.content) {
+            await ctx.db.patch(message.conversationId, {
+                lastMessage: args.content,
+            });
+        }
+    },
+});
+
 export const remove = mutation({
     args: {
         messageId: v.id("messages"),

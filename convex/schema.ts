@@ -35,6 +35,7 @@ export default defineSchema({
         content: v.string(),
         createdAt: v.number(),
         deleted: v.boolean(),
+        isEdited: v.optional(v.boolean()),
         reactions: v.optional(v.array(v.object({
             emoji: v.string(),
             userId: v.id("users"),

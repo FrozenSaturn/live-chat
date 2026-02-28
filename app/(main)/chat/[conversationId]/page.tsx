@@ -48,6 +48,7 @@ export default function ChatPage() {
 
     const sendMessage = useMutation(api.messages.send);
     const deleteMessage = useMutation(api.messages.remove);
+    const editMessage = useMutation(api.messages.edit);
     const toggleReaction = useMutation(api.messages.toggleReaction);
     const updateTyping = useMutation(api.conversations.updateTyping);
     const markAsRead = useMutation(api.conversations.markAsRead);
@@ -245,6 +246,7 @@ export default function ChatPage() {
                                         currentUserId={currentUser?._id}
                                         onToggleReaction={(messageId, userId, emoji) => toggleReaction({ messageId, userId, emoji })}
                                         onDeleteMessage={(messageId) => deleteMessage({ messageId })}
+                                        onEditMessage={(messageId, content) => editMessage({ messageId, content })}
                                     />
                                 );
                             })}

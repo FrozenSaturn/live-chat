@@ -1,8 +1,9 @@
 "use client";
 
 import { useUser, UserButton, useClerk } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { Id } from "../convex/_generated/dataModel";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useState } from "react";
@@ -28,12 +29,34 @@ export function Sidebar({ className }: { className?: string }) {
         currentUser ? { currentUserId: currentUser._id } : "skip"
     );
 
+    const allUsers = useQuery(
+        api.users.listAll,
+        currentUser ? { excludeClerkId: currentUser.clerkId } : "skip"
+    );
+
+    const createConversation = useMutation(api.conversations.getOrCreateConversation);
+
     const filteredConversations = conversations?.filter((c) => {
         if (!c.otherUser) return false;
         return c.otherUser.name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+    const otherUsers = allUsers?.filter((u) => {
+        const inConversation = conversations?.some(c => c.otherUser?._id === u._id);
+        if (inConversation) return false;
+        return u.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
     const handleSelectConversation = (conversationId: string) => {
+        router.push(`/chat/${conversationId}`);
+    };
+
+    const handleStartChat = async (participantId: Id<"users">) => {
+        if (!currentUser) return;
+        const conversationId = await createConversation({
+            currentUserId: currentUser._id,
+            participantId,
+        });
         router.push(`/chat/${conversationId}`);
     };
 
@@ -128,6 +151,35 @@ export function Sidebar({ className }: { className?: string }) {
                                 </button>
                             );
                         })
+                    )}
+
+                    {otherUsers && otherUsers.length > 0 && (
+                        <div className="mt-4">
+                            <div className="px-3 pb-2 pt-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                                Start a chat
+                            </div>
+                            {otherUsers.map((u) => (
+                                <button
+                                    key={u._id}
+                                    onClick={() => handleStartChat(u._id)}
+                                    className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                                >
+                                    <div className="relative shrink-0">
+                                        <Avatar className="h-10 w-10">
+                                            <AvatarImage src={u.image} />
+                                            <AvatarFallback>{u.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        {u.isOnline && (
+                                            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 dark:border-zinc-950" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="truncate text-sm font-medium">{u.name}</div>
+                                        <div className="truncate text-xs text-zinc-500">Click to start chatting</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     )}
                 </div>
             </ScrollArea>
